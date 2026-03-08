@@ -4,6 +4,7 @@
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <title>Weekly Meal Planner</title>
+<script src='https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js'></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f0; color: #2d2d2d; min-height: 100vh; }
@@ -56,8 +57,12 @@ select:focus { outline: none; border-color: #2d5016; }
 .gitem.have .icheck { background: #bbb; border-color: #bbb; }
 .icheck-mark { display: none; width: 12px; height: 10px; }
 .gitem.have .icheck-mark { display: block; }
-.copy-btn { background: #f0f7e8; border: 1.5px solid #2d5016; color: #2d5016; padding: 12px 18px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 8px; width: 100%; }
+.action-btns { display: flex; gap: 10px; margin-top: 8px; }
+.copy-btn { flex: 1; background: #f0f7e8; border: 1.5px solid #2d5016; color: #2d5016; padding: 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
 .copy-btn.copied { background: #2d5016; color: white; }
+.email-btn { flex: 1; background: #2d5016; border: none; color: white; padding: 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.email-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.email-btn.sent { background: #1a7a3a; }
 .tip { background: #fff8e6; border: 1.5px solid #f0b429; border-radius: 10px; padding: 14px; margin-top: 16px; font-size: 0.86rem; color: #7a5800; }
 .tip strong { display: block; margin-bottom: 4px; }
 </style>
@@ -69,94 +74,31 @@ select:focus { outline: none; border-color: #2d5016; }
 <div class='step' id='step2'>
 <div class='step2-header'><h2>&#128722; Grocery List</h2><p>Tap any item you already have to remove it</p></div>
 <div class='meal-summary' id='meal-summary'></div>
-<div class='hint'>Tap any item you <strong>already have on hand</strong> to strike it out. It will not be included when you copy the list.</div>
+<div class='hint'>Tap any item you <strong>already have on hand</strong> to strike it out. It will not be included when you copy or email the list.</div>
 <div id='grocery-output'></div>
-<button class='copy-btn' id='copy-btn' onclick='copyList()'>&#128203; Copy Needed Items for Instacart</button>
-<div class='tip'><strong>&#128161; Instacart Tip</strong>Only unchecked items are included. Search and add on Instacart or paste into your notes app.</div>
+<div class='action-btns'>
+<button class='copy-btn' id='copy-btn' onclick='copyList()'>&#128203; Copy for Instacart</button>
+<button class='email-btn' id='email-btn' onclick='emailList()'>&#128140; Send to Conan</button>
+</div>
+<div class='tip'><strong>&#128161; How to use</strong>Strike out items you already have, then Copy for Instacart or hit Send to Conan to email him the list automatically.</div>
 <button class='btn btn-secondary' onclick='startOver()' style='margin-top:16px'>&#8592; Plan Again</button>
 </div></div>
 <script>
+(function(){emailjs.init({publicKey:'j3WTc85d09TEJV-7V'});})();
 var DAYS=[{name:'Monday',note:'Eleanor soccer 6-7pm'},{name:'Tuesday',note:'Drive day or Chick-fil-A'},{name:'Wednesday',note:''},{name:'Thursday',note:'Drive day or Chick-fil-A'},{name:'Friday',note:'Evelyn soccer 5:30-6:30pm'},{name:'Saturday',note:'Family/date night 7-10pm'},{name:'Sunday',note:'Special home cook'}];
-var ENTREES=[
-{name:'Chick-fil-A drive-thru',ing:[]},
-{name:'Leftovers',ing:[]},
-{name:'Buffalo Chicken Wraps',ing:['Chicken breasts (2 lbs)','Buffalo sauce','Large flour tortillas','Ranch or blue cheese dressing','Lettuce','Shredded cheese']},
-{name:'Pork Chops',ing:['Bone-in pork chops (6)','Seasoning']},
-{name:'Pork Tenderloin',ing:['Pork tenderloin (2 lbs)','Marinade or seasoning rub']},
-{name:'Poppyseed Chicken Casserole',ing:['Chicken breasts (2 lbs)','Cream of chicken soup (2 cans)','Sour cream (1 cup)','Poppy seeds','Ritz crackers (1 sleeve)','White rice (2 cups)']},
-{name:'Oven Roasted Chicken',ing:['Whole chicken (4-5 lbs)','Butter','Garlic (1 head)','Fresh herbs - thyme rosemary']},
-{name:'Chicken Thighs',ing:['Bone-in chicken thighs (6)','Seasoning']},
-{name:'Pan Grilled Salmon',ing:['Salmon fillets (6)','Lemon (2)','Butter','Seasoning']},
-{name:'Pan Grilled Other Fish',ing:['Whitefish fillets tilapia cod or mahi (6)','Lemon (2)','Butter','Seasoning']},
-{name:'Red Sauce and Pappardelle',ing:['Ground Italian sausage (1 lb)','Ground chuck (1 lb)','Pappardelle egg noodles (16 oz)','Jarred red sauce (2 jars)','Parmesan cheese']},
-{name:'Steak and Potatoes',ing:['Sirloin or ribeye steaks (4-6)','Russet or Yukon gold potatoes','Butter','Garlic','Seasoning']},
-{name:'Penne Shrimp Pasta',ing:['Shrimp (1.5 lbs)','Chickpea penne pasta (16 oz)','Vodka sauce (1 jar)','Parmesan cheese']},
-{name:'Burgers',ing:['Ground beef (1.5 lbs)','Burger buns (6)','American cheese slices','Lettuce tomato onion condiments','Russet potatoes for oven fries']},
-{name:'Chicken Breast Sandwiches',ing:['Chicken breasts (5-6)','Sandwich buns (6)','Lettuce tomato mayo condiments']},
-{name:'Chili',ing:['Ground beef or chuck (1.5 lbs)','Kidney beans (2 cans)','Diced tomatoes (2 cans)','Chili seasoning packet','Onion (1)','Tomato paste (1 can)']},
-{name:'Soup of the Day',ing:['Check with Amy for ingredients']}
-];
-var SIDES=[
-{name:'Caesar Salad',ing:['Romaine lettuce','Caesar dressing','Croutons','Parmesan']},
-{name:'House Salad',ing:['Mixed greens','Tomatoes','Cucumbers','Red onion','Salad dressing']},
-{name:'Betty Crocker Pasta Salad',ing:['Betty Crocker pasta salad box']},
-{name:'Mac and Cheese',ing:['Boxed mac and cheese (2)']},
-{name:'Oven Roasted Potatoes',ing:['Russet or Yukon gold potatoes','Olive oil','Garlic','Seasoning']},
-{name:'Brussels Sprouts',ing:['Brussels sprouts (1-1.5 lbs)']},
-{name:'Broccoli',ing:['Broccoli (1-1.5 lbs)']},
-{name:'Asparagus',ing:['Fresh asparagus (1-2 bunches)']},
-{name:'Sweet Potatoes',ing:['Sweet potatoes (4-6 medium)']},
-{name:'Okra',ing:['Fresh or frozen okra (1 lb)']},
-{name:'Fried Okra',ing:['Okra (1 lb)','Cornmeal or breading mix','Frying oil']}
-];
-var ALWAYS=[
-{s:'Conan Breakfast',i:['High fiber tortillas Mission (1 pack)','Liquid egg whites (1 carton)','Shredded cheese','Fresh spinach (1 bag)','Fruit - bananas berries or apples']},
-{s:'Girls Breakfast',i:['Cereal (2 boxes)','Milk']},
-{s:'Conan Lunch',i:['Chicken breasts precooked or raw (1.5 lbs)','Canned tuna (2-3 cans)','Pre-mixed salad bags (2)','High fiber small tortillas (1 pack)','Light dressing or olive oil']},
-{s:'Amy Lunch',i:['Smoked turkey breast deli slices','American cheese slices','Protein or keto bread','Chips']},
-{s:'Supplements',i:['Optimum Gold Standard whey protein (restock as needed)','Milk for protein shakes','Animal Packs (restock as needed)']},
-{s:'Snacks',i:['Cheese snacks - string cheese or Babybel','Chips (family variety)']},
-{s:'Pantry Staples',i:['Olive oil','Butter','Salt pepper garlic herbs','Aluminum foil','Parchment paper']}
-];
+var ENTREES=[{name:'Chick-fil-A drive-thru',ing:[]},{name:'Leftovers',ing:[]},{name:'Buffalo Chicken Wraps',ing:['Chicken breasts (2 lbs)','Buffalo sauce','Large flour tortillas','Ranch or blue cheese dressing','Lettuce','Shredded cheese']},{name:'Pork Chops',ing:['Bone-in pork chops (6)','Seasoning']},{name:'Pork Tenderloin',ing:['Pork tenderloin (2 lbs)','Marinade or seasoning rub']},{name:'Poppyseed Chicken Casserole',ing:['Chicken breasts (2 lbs)','Cream of chicken soup (2 cans)','Sour cream (1 cup)','Poppy seeds','Ritz crackers (1 sleeve)','White rice (2 cups)']},{name:'Oven Roasted Chicken',ing:['Whole chicken (4-5 lbs)','Butter','Garlic (1 head)','Fresh herbs - thyme rosemary']},{name:'Chicken Thighs',ing:['Bone-in chicken thighs (6)','Seasoning']},{name:'Pan Grilled Salmon',ing:['Salmon fillets (6)','Lemon (2)','Butter','Seasoning']},{name:'Pan Grilled Other Fish',ing:['Whitefish fillets - tilapia cod or mahi (6)','Lemon (2)','Butter','Seasoning']},{name:'Red Sauce and Pappardelle',ing:['Ground Italian sausage (1 lb)','Ground chuck (1 lb)','Pappardelle egg noodles (16 oz)','Jarred red sauce (2 jars)','Parmesan cheese']},{name:'Steak and Potatoes',ing:['Sirloin or ribeye steaks (4-6)','Russet or Yukon gold potatoes','Butter','Garlic','Seasoning']},{name:'Penne Shrimp Pasta',ing:['Shrimp (1.5 lbs)','Chickpea penne pasta (16 oz)','Vodka sauce (1 jar)','Parmesan cheese']},{name:'Burgers',ing:['Ground beef (1.5 lbs)','Burger buns (6)','American cheese slices','Lettuce tomato onion condiments','Russet potatoes for oven fries']},{name:'Chicken Breast Sandwiches',ing:['Chicken breasts (5-6)','Sandwich buns (6)','Lettuce tomato mayo condiments']},{name:'Chili',ing:['Ground beef or chuck (1.5 lbs)','Kidney beans (2 cans)','Diced tomatoes (2 cans)','Chili seasoning packet','Onion (1)','Tomato paste (1 can)']},{name:'Soup of the Day',ing:['Check with Amy for ingredients']}];
+var SIDES=[{name:'Caesar Salad',ing:['Romaine lettuce','Caesar dressing','Croutons','Parmesan']},{name:'House Salad',ing:['Mixed greens','Tomatoes','Cucumbers','Red onion','Salad dressing']},{name:'Betty Crocker Pasta Salad',ing:['Betty Crocker pasta salad box']},{name:'Mac and Cheese',ing:['Boxed mac and cheese (2)']},{name:'Oven Roasted Potatoes',ing:['Russet or Yukon gold potatoes','Olive oil','Garlic','Seasoning']},{name:'Brussels Sprouts',ing:['Brussels sprouts (1-1.5 lbs)']},{name:'Broccoli',ing:['Broccoli (1-1.5 lbs)']},{name:'Asparagus',ing:['Fresh asparagus (1-2 bunches)']},{name:'Sweet Potatoes',ing:['Sweet potatoes (4-6 medium)']},{name:'Okra',ing:['Fresh or frozen okra (1 lb)']},{name:'Fried Okra',ing:['Okra (1 lb)','Cornmeal or breading mix','Frying oil']}];
+var ALWAYS=[{s:'Conan Breakfast',i:['High fiber tortillas Mission (1 pack)','Liquid egg whites (1 carton)','Shredded cheese','Fresh spinach (1 bag)','Fruit - bananas berries or apples']},{s:'Girls Breakfast',i:['Cereal (2 boxes)','Milk']},{s:'Conan Lunch',i:['Chicken breasts precooked or raw (1.5 lbs)','Canned tuna (2-3 cans)','Pre-mixed salad bags (2)','High fiber small tortillas (1 pack)','Light dressing or olive oil']},{s:'Amy Lunch',i:['Smoked turkey breast deli slices','American cheese slices','Protein or keto bread','Chips']},{s:'Supplements',i:['Optimum Gold Standard whey protein (restock as needed)','Milk for protein shakes','Animal Packs (restock as needed)']},{s:'Snacks',i:['Cheese snacks - string cheese or Babybel','Chips (family variety)']},{s:'Pantry Staples',i:['Olive oil','Butter','Salt pepper garlic herbs','Aluminum foil','Parchment paper']}];
 var daySel={};var itemStates={};var allSections=[];
-function init(){
-var c=document.getElementById('days-container');
-DAYS.forEach(function(d,i){
-daySel[i]={active:false,entree:null,sides:[]};
-var card=document.createElement('div');
-card.className='day-card';
-var sides=SIDES.map(function(s,si){return "<label class='side-cb' id='sc"+i+"-"+si+"'><input type='checkbox' onchange='togSide("+i+","+si+",this.parentElement)'>"+s.name+"</label>";}).join('');
-var opts="<option value=''>-- Choose an entree --</option>"+ENTREES.map(function(e,ei){return "<option value='"+ei+"'>"+e.name+"</option>";}).join('');
-card.innerHTML="<div class='day-header'><span class='day-name'>"+d.name+"</span>"+(d.note?"<span class='day-note'>"+d.note+"</span>":"")+"</div>"+"<div class='toggle-row'><label class='toggle'><input type='checkbox' onchange='togDay("+i+",this)'><span class='slider'></span></label><span class='toggle-label'>Needs dinner planned</span></div>"+"<div class='meal-select' id='ms"+i+"'><div class='select-group'><div class='select-label'>Entree</div><select onchange='selEntree("+i+",this)'>"+opts+"</select></div><div class='select-group'><div class='select-label'>Sides</div><div class='sides-grid'>"+sides+"</div></div></div>";
-c.appendChild(card);
-});
-}
+function init(){var c=document.getElementById('days-container');DAYS.forEach(function(d,i){daySel[i]={active:false,entree:null,sides:[]};var card=document.createElement('div');card.className='day-card';var sides=SIDES.map(function(s,si){return "<label class='side-cb' id='sc"+i+"-"+si+"'><input type='checkbox' onchange='togSide("+i+","+si+",this.parentElement)'>"+s.name+"</label>";}).join('');var opts="<option value=''>-- Choose an entree --</option>"+ENTREES.map(function(e,ei){return "<option value='"+ei+"'>"+e.name+"</option>";}).join('');card.innerHTML="<div class='day-header'><span class='day-name'>"+d.name+"</span>"+(d.note?"<span class='day-note'>"+d.note+"</span>":"")+"</div><div class='toggle-row'><label class='toggle'><input type='checkbox' onchange='togDay("+i+",this)'><span class='slider'></span></label><span class='toggle-label'>Needs dinner planned</span></div><div class='meal-select' id='ms"+i+"'><div class='select-group'><div class='select-label'>Entree</div><select onchange='selEntree("+i+",this)'>"+opts+"</select></div><div class='select-group'><div class='select-label'>Sides</div><div class='sides-grid'>"+sides+"</div></div></div>";c.appendChild(card);});}
 function togDay(i,cb){daySel[i].active=cb.checked;document.getElementById('ms'+i).classList.toggle('visible',cb.checked);}
 function selEntree(i,sel){daySel[i].entree=sel.value!==''?parseInt(sel.value):null;}
 function togSide(i,si,lbl){var idx=daySel[i].sides.indexOf(si);if(idx===-1){daySel[i].sides.push(si);lbl.classList.add('checked');}else{daySel[i].sides.splice(idx,1);lbl.classList.remove('checked');}}
-function generateList(){
-itemStates={};allSections=[];
-var smhtml='<h3>This Week Dinners</h3>';var has=false;
-Object.keys(daySel).forEach(function(i){var s=daySel[i];if(s.active&&s.entree!==null){has=true;var sides=s.sides.map(function(si){return SIDES[si].name;}).join(', ');smhtml+="<div class='meal-row'><span class='mday'>"+DAYS[i].name+"</span><span>"+ENTREES[s.entree].name+(sides?' + '+sides:'')+"</span></div>";}});
-if(!has)smhtml+='<p style="color:#888;font-size:0.88rem">No meals selected</p>';
-document.getElementById('meal-summary').innerHTML=smhtml;
-var dingerIngs=[];var seen=new Set();
-Object.keys(daySel).forEach(function(i){var s=daySel[i];if(s.active&&s.entree!==null){ENTREES[s.entree].ing.forEach(function(ing){if(!seen.has(ing)){seen.add(ing);dingerIngs.push(ing);}});s.sides.forEach(function(si){SIDES[si].ing.forEach(function(ing){if(!seen.has(ing)){seen.add(ing);dingerIngs.push(ing);}});});}});
-allSections=ALWAYS.map(function(a){return {s:a.s,i:a.i.slice()};});
-if(dingerIngs.length>0)allSections.push({s:'Dinners This Week',i:dingerIngs});
-var html='';
-allSections.forEach(function(sec,si){
-sec.i.forEach(function(item,ii){itemStates[si+'-'+ii]=true;});
-var itemsHtml=sec.i.map(function(item,ii){var key=si+'-'+ii;return "<div class='gitem' id='gi"+key+"' onclick=\"togItem('"+key+"')\">"+"<div class='icheck'><svg class='icheck-mark' viewBox='0 0 12 10' fill='none'><path d='M1 5l3.5 3.5L11 1' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg></div>"+"<span>"+item+"</span></div>";}).join('');
-html+="<div class='grocery-section'><div class='gsec-header'><h3>"+sec.s+"</h3><span class='sec-count' id='cnt"+si+"'>"+sec.i.length+" items</span></div>"+itemsHtml+"</div>";
-});
-document.getElementById('grocery-output').innerHTML=html;
-document.getElementById('step1').classList.remove('active');
-document.getElementById('step2').classList.add('active');
-window.scrollTo(0,0);
-}
+function buildListText(){var text='WEEKLY GROCERY LIST\n\n';allSections.forEach(function(sec,si){var needed=sec.i.filter(function(item,ii){return itemStates[si+'-'+ii]!==false;});if(needed.length>0){text+=sec.s.toUpperCase()+'\n';needed.forEach(function(i){text+='- '+i+'\n';});text+='\n';}});return text;}
+function generateList(){itemStates={};allSections=[];var smhtml='<h3>This Week Dinners</h3>';var has=false;Object.keys(daySel).forEach(function(i){var s=daySel[i];if(s.active&&s.entree!==null){has=true;var sides=s.sides.map(function(si){return SIDES[si].name;}).join(', ');smhtml+="<div class='meal-row'><span class='mday'>"+DAYS[i].name+"</span><span>"+ENTREES[s.entree].name+(sides?' + '+sides:'')+"</span></div>";}});if(!has)smhtml+='<p style="color:#888;font-size:0.88rem">No meals selected</p>';document.getElementById('meal-summary').innerHTML=smhtml;var dingerIngs=[];var seen=new Set();Object.keys(daySel).forEach(function(i){var s=daySel[i];if(s.active&&s.entree!==null){ENTREES[s.entree].ing.forEach(function(ing){if(!seen.has(ing)){seen.add(ing);dingerIngs.push(ing);}});s.sides.forEach(function(si){SIDES[si].ing.forEach(function(ing){if(!seen.has(ing)){seen.add(ing);dingerIngs.push(ing);}});});}});allSections=ALWAYS.map(function(a){return {s:a.s,i:a.i.slice()};});if(dingerIngs.length>0)allSections.push({s:'Dinners This Week',i:dingerIngs});var html='';allSections.forEach(function(sec,si){sec.i.forEach(function(item,ii){itemStates[si+'-'+ii]=true;});var itemsHtml=sec.i.map(function(item,ii){var key=si+'-'+ii;return "<div class='gitem' id='gi"+key+"' onclick=\"togItem('"+key+"')\">"+"<div class='icheck'><svg class='icheck-mark' viewBox='0 0 12 10' fill='none'><path d='M1 5l3.5 3.5L11 1' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg></div>"+"<span>"+item+"</span></div>";}).join('');html+="<div class='grocery-section'><div class='gsec-header'><h3>"+sec.s+"</h3><span class='sec-count' id='cnt"+si+"'>"+sec.i.length+" items</span></div>"+itemsHtml+"</div>";});document.getElementById('grocery-output').innerHTML=html;document.getElementById('step1').classList.remove('active');document.getElementById('step2').classList.add('active');window.scrollTo(0,0);}
 function togItem(key){itemStates[key]=!itemStates[key];var el=document.getElementById('gi'+key);if(itemStates[key]){el.classList.remove('have');}else{el.classList.add('have');}var si=key.split('-')[0];var secs=document.getElementById('grocery-output').querySelectorAll('.grocery-section');if(secs[parseInt(si)]){var total=secs[parseInt(si)].querySelectorAll('.gitem').length;var needed=secs[parseInt(si)].querySelectorAll('.gitem:not(.have)').length;document.getElementById('cnt'+si).textContent=needed+' of '+total+' needed';}}
-function copyList(){var text='WEEKLY GROCERY LIST\n\n';allSections.forEach(function(sec,si){var needed=sec.i.filter(function(item,ii){return itemStates[si+'-'+ii]!==false;});if(needed.length>0){text+=sec.s.toUpperCase()+'\n';needed.forEach(function(i){text+='- '+i+'\n';});text+='\n';}});navigator.clipboard.writeText(text).then(function(){var btn=document.getElementById('copy-btn');btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy Needed Items for Instacart';btn.classList.remove('copied');},2500);});}
+function copyList(){var text=buildListText();navigator.clipboard.writeText(text).then(function(){var btn=document.getElementById('copy-btn');btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy for Instacart';btn.classList.remove('copied');},2500);});}
+function emailList(){var btn=document.getElementById('email-btn');btn.disabled=true;btn.textContent='Sending...';var text=buildListText();emailjs.send('service_vtjuybm','template_nene9x5',{message:text,to_email:'conan.frith.741@gmail.com'}).then(function(){btn.textContent='Sent to Conan!';btn.classList.add('sent');setTimeout(function(){btn.textContent='Send to Conan';btn.disabled=false;btn.classList.remove('sent');},3000);},function(err){btn.textContent='Send Failed - Try Again';btn.disabled=false;console.error('EmailJS error:',err);});}
 function startOver(){document.getElementById('step2').classList.remove('active');document.getElementById('step1').classList.add('active');window.scrollTo(0,0);}
 init();
 </script>
